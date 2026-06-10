@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(user)
+  createdAt    DateTime  @default(now())
+  lastSeen     DateTime?
+
+  chats               ChatMember[]
+  messages            Message[]
+  messageReads        MessageRead[]
+  createdChats        Chat[]               @relation("ChatCreator")
+  invitesSent         ChatInvite[]         @relation("InviteFrom")
+  invitesReceived     ChatInvite[]         @relation("InviteTo")
+  blocksGiven         UserBlock[]          @relation("BlocksGiven")
+  blocksReceived      UserBlock[]          @relation("BlocksReceived")
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([username])
+}
+
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Chat {
+  id          Int      @id @default(autoincrement())
+  type        ChatType
+  name        String?
+  createdAt   DateTime @default(now())
+  createdById Int?
+  createdBy   User?    @relation("ChatCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  members  ChatMember[]
+  messages Message[]
+  invites  ChatInvite[]
+
+  @@index([type])
+}
+
+model ChatMember {
+  id                  Int       @id @default(autoincrement())
+  chatId              Int
+  userId              Int
+  joinedAt            DateTime  @default(now())
+  leftAt              DateTime?
+  deletedAt             DateTime?
+  messagesVisibleFrom   DateTime?
+  notificationsEnabled  Boolean   @default(true)
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+  @@index([chatId])
+  @@index([userId])
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  chatId    Int
+  senderId  Int
+  content   String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+
+  chat         Chat                 @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender       User                 @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reads        MessageRead[]
+  replyTargets MessageReplyTarget[] @relation("ReplyMessage")
+  repliedFrom  MessageReplyTarget[] @relation("ReplyTarget")
+
+  @@index([chatId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model MessageReplyTarget {
+  id              Int @id @default(autoincrement())
+  messageId       Int
+  targetMessageId Int
+  sortOrder       Int @default(0)
+
+  message Message @relation("ReplyMessage", fields: [messageId], references: [id], onDelete: Cascade)
+  target  Message @relation("ReplyTarget", fields: [targetMessageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, targetMessageId])
+  @@index([messageId])
+}
+
+model MessageRead {
+  id        Int       @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  readAt    DateTime?
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@index([messageId])
+}
+
+model ChatInvite {
+  id          Int          @id @default(autoincrement())
+  type        InviteType
+  fromUserId  Int
+  toUserId    Int
+  chatId      Int?
+  groupName   String?
+  status      InviteStatus @default(pending)
+  createdAt   DateTime     @default(now())
+  respondedAt DateTime?
+
+  fromUser User  @relation("InviteFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User  @relation("InviteTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  chat     Chat? @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([toUserId, status])
+  @@index([fromUserId])
+}
+
+model UserBlock {
+  id        Int      @id @default(autoincrement())
+  blockerId Int
+  blockedId Int
+  createdAt DateTime @default(now())
+
+  blocker User @relation("BlocksGiven", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum ChatType {
+  private
+  group
+}
+
+enum InviteType {
+  private
+  group
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  rejected
+}
