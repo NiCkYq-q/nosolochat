@@ -11,6 +11,7 @@ import type {
 } from "../socket/events";
 import { formatMessageNotificationText } from "../utils/formatMessageNotification";
 import { playNotificationSound } from "../utils/notificationSound";
+import { isNotificationSessionReady } from "../utils/sessionReady";
 
 type Toast = {
   id: number;
@@ -54,6 +55,10 @@ export default function ToastNotifications() {
     };
 
     const onNewMessage = (payload: SocketMessagePayload) => {
+      if (!isNotificationSessionReady()) {
+        return;
+      }
+
       if (user === null || payload.senderId === user.id) {
         return;
       }

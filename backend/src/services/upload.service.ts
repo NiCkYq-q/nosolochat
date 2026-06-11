@@ -118,6 +118,9 @@ export async function uploadChatImage(
       imageUrl: message.imageUrl,
       createdAt: message.createdAt.toISOString(),
       senderUsername: chat.type === ChatType.group ? sender?.username : undefined,
+      replyTo: [],
+      isRead: true,
+      readByOthers: false,
     },
     restoredChats,
   };

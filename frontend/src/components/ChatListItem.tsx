@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import type { ChatListItem as ChatListItemType } from "../api/chats";
-import { formatMessageTime } from "../utils/formatTime";
+import { formatChatListTime } from "../utils/formatTime";
 import { getInitials } from "../utils/initials";
 
 type ChatListItemProps = {
@@ -21,7 +21,7 @@ export default function ChatListItem({ chat }: ChatListItemProps) {
         <div className="chat-item-top">
           <h3 className="chat-item-name">{chat.name}</h3>
           <time className="chat-item-time" dateTime={chat.lastMessageAt ?? undefined}>
-            {formatMessageTime(chat.lastMessageAt)}
+            {formatChatListTime(chat.lastMessageAt)}
           </time>
         </div>
 

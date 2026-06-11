@@ -7,6 +7,23 @@ export type SocketMessagePayload = Message & {
   chatName?: string;
 };
 
+export type MessageReadPayload = {
+  chatId: number;
+  messageIds: number[];
+  userId: number;
+};
+
+export type UserTypingPayload = {
+  chatId: number;
+  userId: number;
+  username: string;
+};
+
+export type UserTypingStopPayload = {
+  chatId: number;
+  userId: number;
+};
+
 export type ChatUnreadUpdatedPayload = {
   chatId: number;
   unreadCount: number;

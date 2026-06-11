@@ -7,6 +7,7 @@ import {
 } from "react";
 import { io, type Socket } from "socket.io-client";
 import { getStoredToken } from "../api/client";
+import { resetNotificationSessionReady } from "../utils/sessionReady";
 import { useAuth } from "./useAuth";
 
 export type SocketContextValue = {
@@ -23,6 +24,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (user === null) {
+      resetNotificationSessionReady();
       setIsConnected(false);
       setSocket(null);
       return;
@@ -48,6 +50,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
 
     const handleDisconnect = () => {
+      resetNotificationSessionReady();
       setIsConnected(false);
     };
 
@@ -62,6 +65,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       socketInstance.off("authenticated", handleAuthenticated);
       socketInstance.off("disconnect", handleDisconnect);
       socketInstance.disconnect();
+      resetNotificationSessionReady();
       setSocket(null);
       setIsConnected(false);
     };

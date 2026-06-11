@@ -18,13 +18,17 @@ export function unlockNotificationSound(): void {
 
   unlocked = true;
   const clip = getAudio();
+  const previousVolume = clip.volume;
+  clip.volume = 0;
   clip.load();
   void clip.play()
     .then(() => {
       clip.pause();
       clip.currentTime = 0;
+      clip.volume = previousVolume;
     })
     .catch(() => {
+      clip.volume = previousVolume;
       // Autoplay may still be blocked until a real notification; ignore.
     });
 }

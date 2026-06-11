@@ -127,6 +127,32 @@ export async function emitUnreadUpdate(
   });
 }
 
+export async function emitMessageRead(
+  io: Server,
+  chatId: number,
+  readerUserId: number,
+  messageIds: number[]
+): Promise<void> {
+  if (messageIds.length === 0) {
+    return;
+  }
+
+  const members = await prisma.chatMember.findMany({
+    where: { chatId, ...PRESENT_MEMBER_WHERE },
+    select: { userId: true },
+  });
+
+  const payload = {
+    chatId,
+    messageIds,
+    userId: readerUserId,
+  };
+
+  for (const member of members) {
+    io.to(`user:${String(member.userId)}`).emit("message:read", payload);
+  }
+}
+
 export function emitPrivateChatRequest(
   io: Server,
   toUserId: number,

@@ -16,6 +16,8 @@ export type Message = {
   createdAt: string;
   senderUsername?: string;
   replyTo?: ReplyPreview[];
+  isRead?: boolean;
+  readByOthers?: boolean;
 };
 
 export type MessagesResponse = {

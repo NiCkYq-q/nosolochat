@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchChats, type ChatListItem } from "../api/chats";
 import { ApiError } from "../api/client";
+import { useAuth } from "../context/useAuth";
 import { useChatListSocket } from "../hooks/useChatListSocket";
 import ChatListItemView from "./ChatListItem";
 
@@ -9,8 +10,10 @@ type ChatListProps = {
 };
 
 export default function ChatList({ refreshKey }: ChatListProps) {
-  const [chats, setChats] = useState<ChatListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { initialChats } = useAuth();
+  const hasUsedInitialChats = useRef(false);
+  const [chats, setChats] = useState<ChatListItem[]>(() => initialChats ?? []);
+  const [isLoading, setIsLoading] = useState(initialChats === null);
   const [error, setError] = useState<string | null>(null);
 
   const loadChats = useCallback(async (options?: { silent?: boolean }) => {
@@ -36,8 +39,15 @@ export default function ChatList({ refreshKey }: ChatListProps) {
   }, []);
 
   useEffect(() => {
+    if (refreshKey === 0 && initialChats !== null && !hasUsedInitialChats.current) {
+      hasUsedInitialChats.current = true;
+      setChats(initialChats);
+      setIsLoading(false);
+      return;
+    }
+
     void loadChats();
-  }, [loadChats, refreshKey]);
+  }, [loadChats, refreshKey, initialChats]);
 
   useChatListSocket({
     onUpdate: setChats,

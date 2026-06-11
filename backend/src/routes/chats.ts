@@ -26,6 +26,7 @@ import {
   emitGroupCreatedForUser,
   emitGroupInvite,
   emitMessageToChatMembers,
+  emitMessageRead,
   emitPrivateChatRequest,
   emitUnreadUpdate,
 } from "../socket/notifications.js";
@@ -420,6 +421,7 @@ chatsRouter.post("/:chatId/read", async (req, res) => {
   const io = getSocketServer();
   if (io !== null) {
     await emitUnreadUpdate(io, chatId, auth.userId);
+    await emitMessageRead(io, chatId, auth.userId, result.messageIds);
   }
 
   sendSuccess(res, null);

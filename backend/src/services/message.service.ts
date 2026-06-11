@@ -64,7 +64,12 @@ function mapReplyPreview(target: ReplyTargetRow["target"]): ReplyPreview {
   };
 }
 
-function mapMessageToDto(message: MessageRow, isGroup: boolean): MessageDto {
+function mapMessageToDto(
+  message: MessageRow,
+  isGroup: boolean,
+  isRead: boolean,
+  readByOthers: boolean
+): MessageDto {
   return {
     id: message.id,
     senderId: message.senderId,
@@ -73,6 +78,8 @@ function mapMessageToDto(message: MessageRow, isGroup: boolean): MessageDto {
     createdAt: message.createdAt.toISOString(),
     senderUsername: isGroup ? message.sender.username : undefined,
     replyTo: message.replyTargets.map((entry) => mapReplyPreview(entry.target)),
+    isRead,
+    readByOthers,
   };
 }
 
@@ -234,8 +241,47 @@ export async function getMessages(
 
   const hasMore = rows.length > limit;
   const pageRows = hasMore ? rows.slice(0, limit) : rows;
+  const chronologicalRows = pageRows.reverse();
 
-  const messages: MessageDto[] = pageRows.reverse().map((message) => mapMessageToDto(message, isGroup));
+  const readRows = await prisma.messageRead.findMany({
+    where: {
+      userId,
+      messageId: { in: chronologicalRows.map((message) => message.id) },
+    },
+    select: { messageId: true, readAt: true },
+  });
+
+  const readAtByMessageId = new Map(
+    readRows.map((read) => [read.messageId, read.readAt])
+  );
+
+  const ownMessageIds = chronologicalRows
+    .filter((message) => message.senderId === userId)
+    .map((message) => message.id);
+
+  const readByOthersRows =
+    ownMessageIds.length === 0
+      ? []
+      : await prisma.messageRead.findMany({
+          where: {
+            messageId: { in: ownMessageIds },
+            userId: { not: userId },
+            readAt: { not: null },
+          },
+          select: { messageId: true },
+          distinct: ["messageId"],
+        });
+
+  const readByOthersSet = new Set(readByOthersRows.map((read) => read.messageId));
+
+  const messages: MessageDto[] = chronologicalRows.map((message) => {
+    const isOwnMessage = message.senderId === userId;
+    const readAt = readAtByMessageId.get(message.id);
+    const isRead = isOwnMessage || (readAt !== null && readAt !== undefined);
+    const readByOthers = isOwnMessage ? readByOthersSet.has(message.id) : false;
+
+    return mapMessageToDto(message, isGroup, isRead, readByOthers);
+  });
 
   return { messages, hasMore };
 }
@@ -321,13 +367,16 @@ export async function sendMessage(
 
   const restoredChats = await restoreHiddenChatsForNewMessage(chatId, senderId);
 
-  return { message: mapMessageToDto(message, chat.type === ChatType.group), restoredChats };
+  return {
+    message: mapMessageToDto(message, chat.type === ChatType.group, true, false),
+    restoredChats,
+  };
 }
 
 export async function markChatAsRead(
   chatId: number,
   userId: number
-): Promise<{ ok: true } | { error: string; status: number }> {
+): Promise<{ ok: true; messageIds: number[] } | { error: string; status: number }> {
   const membership = await requireChatMember(chatId, userId);
   if (membership === null) {
     return { error: "Chat not found", status: 404 };
@@ -336,7 +385,7 @@ export async function markChatAsRead(
   const cutoff = getMessageCutoff(membership.messagesVisibleFrom);
   const now = new Date();
 
-  await prisma.messageRead.updateMany({
+  const unreadReads = await prisma.messageRead.findMany({
     where: {
       userId,
       readAt: null,
@@ -345,8 +394,23 @@ export async function markChatAsRead(
         ...(cutoff !== null ? { createdAt: { gte: cutoff } } : {}),
       },
     },
+    select: { messageId: true },
+  });
+
+  const messageIds = unreadReads.map((read) => read.messageId);
+
+  if (messageIds.length === 0) {
+    return { ok: true, messageIds: [] };
+  }
+
+  await prisma.messageRead.updateMany({
+    where: {
+      userId,
+      messageId: { in: messageIds },
+      readAt: null,
+    },
     data: { readAt: now },
   });
 
-  return { ok: true };
+  return { ok: true, messageIds };
 }

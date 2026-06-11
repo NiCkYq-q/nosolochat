@@ -10,10 +10,13 @@ type MessageComposerProps = {
   onCancelAllReplies: () => void;
   onSend: (content: string, replyToMessageIds?: number[]) => Promise<void>;
   onSendImage?: (file: File) => Promise<void>;
+  onTypingStart?: () => void;
+  onTypingStop?: () => void;
 };
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+const TYPING_STOP_DELAY_MS = 2000;
 
 export default function MessageComposer({
   disabled,
@@ -23,14 +26,60 @@ export default function MessageComposer({
   onCancelAllReplies,
   onSend,
   onSendImage,
+  onTypingStart,
+  onTypingStop,
 }: MessageComposerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingStopTimerRef = useRef<number | null>(null);
+  const isTypingRef = useRef(false);
   const [content, setContent] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canSend = content.trim().length > 0 && !disabled && !isSending;
   const hasReplies = replyToMessages.length > 0;
+
+  const clearTypingStopTimer = () => {
+    if (typingStopTimerRef.current !== null) {
+      window.clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
+  };
+
+  const stopTyping = () => {
+    clearTypingStopTimer();
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      onTypingStop?.();
+    }
+  };
+
+  const scheduleTypingStop = () => {
+    clearTypingStopTimer();
+    typingStopTimerRef.current = window.setTimeout(() => {
+      stopTyping();
+    }, TYPING_STOP_DELAY_MS);
+  };
+
+  const handleContentChange = (value: string) => {
+    setContent(value);
+
+    if (disabled || isSending) {
+      return;
+    }
+
+    if (value.length === 0) {
+      stopTyping();
+      return;
+    }
+
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      onTypingStart?.();
+    }
+
+    scheduleTypingStop();
+  };
 
   const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,6 +92,7 @@ export default function MessageComposer({
       replyToMessages.length > 0 ? replyToMessages.map((message) => message.id) : undefined;
     setIsSending(true);
     setError(null);
+    stopTyping();
 
     try {
       await onSend(trimmed, replyToMessageIds);
@@ -76,6 +126,7 @@ export default function MessageComposer({
 
     setIsSending(true);
     setError(null);
+    stopTyping();
 
     try {
       await onSendImage(file);
@@ -157,7 +208,7 @@ export default function MessageComposer({
           maxLength={2000}
           disabled={disabled || isSending}
           onChange={(event) => {
-            setContent(event.target.value);
+            handleContentChange(event.target.value);
           }}
         />
         <button type="submit" className="primary-button" disabled={!canSend} aria-label="Отправить">

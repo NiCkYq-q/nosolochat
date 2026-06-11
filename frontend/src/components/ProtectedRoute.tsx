@@ -1,18 +1,12 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { ChatNotificationProvider } from "../context/ChatNotificationContext";
 import { useAuth } from "../context/useAuth";
+import FaviconController from "./FaviconController";
+import SessionReadyBridge from "./SessionReadyBridge";
 import ToastNotifications from "./ToastNotifications";
 
 export function ProtectedRoute() {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <main className="page">
-        <p>Загрузка...</p>
-      </main>
-    );
-  }
+  const { user } = useAuth();
 
   if (user === null) {
     return <Navigate to="/login" replace />;
@@ -20,6 +14,8 @@ export function ProtectedRoute() {
 
   return (
     <ChatNotificationProvider>
+      <FaviconController />
+      <SessionReadyBridge />
       <ToastNotifications />
       <Outlet />
     </ChatNotificationProvider>
@@ -27,15 +23,7 @@ export function ProtectedRoute() {
 }
 
 export function PublicOnlyRoute() {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <main className="page">
-        <p>Загрузка...</p>
-      </main>
-    );
-  }
+  const { user } = useAuth();
 
   if (user !== null) {
     return <Navigate to="/" replace />;
@@ -45,15 +33,7 @@ export function PublicOnlyRoute() {
 }
 
 export function AdminRoute() {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <main className="page">
-        <p>Загрузка...</p>
-      </main>
-    );
-  }
+  const { user } = useAuth();
 
   if (user === null) {
     return <Navigate to="/login" replace />;
@@ -65,6 +45,8 @@ export function AdminRoute() {
 
   return (
     <ChatNotificationProvider>
+      <FaviconController />
+      <SessionReadyBridge />
       <ToastNotifications />
       <Outlet />
     </ChatNotificationProvider>

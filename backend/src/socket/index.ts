@@ -9,6 +9,7 @@ import {
 import { emitMessageToChatMembers } from "./notifications.js";
 import { setSocketServer } from "./io.js";
 import { notifyUserOffline, notifyUserOnline } from "./presence.js";
+import { handleTypingStart, handleTypingStop, parseTypingPayload } from "./typing.js";
 
 const AUTH_TIMEOUT_MS = 10_000;
 
@@ -59,6 +60,36 @@ export function registerSocketHandlers(io: Server): void {
         socket.emit("error", { message: "Invalid or expired token" });
         socket.disconnect(true);
       }
+    });
+
+    socket.on("typing:start", (payload: { chatId?: number }) => {
+      void (async () => {
+        if (authenticatedUserId === null) {
+          return;
+        }
+
+        const chatId = parseTypingPayload(payload);
+        if (chatId === null) {
+          return;
+        }
+
+        await handleTypingStart(io, chatId, authenticatedUserId);
+      })();
+    });
+
+    socket.on("typing:stop", (payload: { chatId?: number }) => {
+      void (async () => {
+        if (authenticatedUserId === null) {
+          return;
+        }
+
+        const chatId = parseTypingPayload(payload);
+        if (chatId === null) {
+          return;
+        }
+
+        await handleTypingStop(io, chatId, authenticatedUserId);
+      })();
     });
 
     socket.on("message:send", (payload: MessageSendPayload) => {
